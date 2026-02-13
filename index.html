@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>年夜饭菜单生成器</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500&display=swap');
+
+  :root {
+    --red: #C0392B;
+    --deep-red: #8B0000;
+    --gold: #D4A017;
+    --cream: #FDF8F0;
+    --dark: #1A0A00;
+    --mid: #4A2C0A;
+    --soft: #8B6914;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--cream);
+    font-family: 'Noto Sans SC', sans-serif;
+    color: var(--dark);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(192,57,43,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 90% 80%, rgba(212,160,23,0.08) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 0 60px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, var(--deep-red) 0%, var(--red) 60%, #E74C3C 100%);
+    padding: 40px 24px 32px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '馬';
+    position: absolute;
+    font-size: 200px;
+    opacity: 0.06;
+    top: -30px; left: -20px;
+    font-family: 'Noto Serif SC', serif;
+    color: var(--gold);
+  }
+  .header::after {
+    content: '囍';
+    position: absolute;
+    font-size: 120px;
+    opacity: 0.05;
+    bottom: -10px; right: -10px;
+    font-family: 'Noto Serif SC', serif;
+    color: var(--gold);
+  }
+  .lantern {
+    font-size: 32px; margin-bottom: 8px;
+    animation: sway 3s ease-in-out infinite;
+    display: inline-block;
+  }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+  }
+  .header h1 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 26px; font-weight: 700;
+    color: #fff; letter-spacing: 4px; margin-bottom: 6px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .header p { color: rgba(255,255,255,0.8); font-size: 13px; letter-spacing: 1px; }
+  .gold-divider { width: 60px; height: 2px; background: var(--gold); margin: 12px auto 0; border-radius: 2px; }
+
+  /* Form */
+  .form-section { padding: 28px 20px 0; }
+
+  .section-label {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 15px; color: var(--deep-red); font-weight: 600;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(to right, rgba(192,57,43,0.3), transparent);
+  }
+
+  .people-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+
+  .people-card {
+    background: #fff; border: 1.5px solid rgba(212,160,23,0.25);
+    border-radius: 12px; padding: 14px 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .people-card:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,160,23,0.12); }
+  .people-card .emoji { font-size: 22px; margin-bottom: 6px; display: block; }
+  .people-card label { display: block; font-size: 11px; color: var(--soft); margin-bottom: 6px; }
+  .people-card input[type="number"] {
+    width: 100%; border: none; background: var(--cream); border-radius: 6px;
+    padding: 7px 10px; font-size: 15px; font-family: 'Noto Sans SC', sans-serif;
+    color: var(--dark); font-weight: 500; outline: none; -moz-appearance: textfield;
+  }
+  .people-card input::-webkit-outer-spin-button,
+  .people-card input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  .tag-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .tag {
+    padding: 7px 14px; border-radius: 20px;
+    border: 1.5px solid rgba(192,57,43,0.2);
+    background: #fff; font-size: 13px; color: var(--mid);
+    cursor: pointer; transition: all 0.18s;
+    user-select: none; -webkit-user-select: none;
+  }
+  .tag.selected { background: var(--red); color: #fff; border-color: var(--red); font-weight: 500; }
+  .tag:active { transform: scale(0.96); }
+
+  /* Avoid group */
+  .avoid-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+  .avoid-item {
+    display: flex; align-items: center;
+    background: #fff; border: 1.5px solid rgba(192,57,43,0.2);
+    border-radius: 20px; overflow: hidden;
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+  .avoid-item.active { border-color: var(--red); box-shadow: 0 0 0 2px rgba(192,57,43,0.1); }
+  .avoid-label {
+    padding: 7px 12px 7px 14px; font-size: 13px; color: var(--mid);
+    cursor: pointer; user-select: none; -webkit-user-select: none;
+    transition: background 0.18s, color 0.18s; white-space: nowrap;
+  }
+  .avoid-item.active .avoid-label { background: var(--red); color: #fff; }
+  .avoid-count-wrap { display: none; align-items: center; padding-right: 10px; gap: 4px; }
+  .avoid-item.active .avoid-count-wrap { display: flex; }
+  .avoid-count-wrap span { font-size: 11px; color: var(--soft); }
+  .avoid-count {
+    width: 36px; border: 1px solid rgba(212,160,23,0.4); border-radius: 6px;
+    background: var(--cream); padding: 3px 6px; font-size: 13px;
+    font-family: 'Noto Sans SC', sans-serif; color: var(--dark);
+    outline: none; text-align: center; -moz-appearance: textfield;
+  }
+  .avoid-count::-webkit-outer-spin-button,
+  .avoid-count::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  .input-field {
+    width: 100%; background: #fff; border: 1.5px solid rgba(212,160,23,0.25);
+    border-radius: 12px; padding: 13px 16px; font-size: 14px;
+    font-family: 'Noto Sans SC', sans-serif; color: var(--dark);
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    margin-bottom: 20px; resize: none;
+  }
+  .input-field:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,160,23,0.12); }
+  .input-field::placeholder { color: #C4A882; }
+
+  .budget-display {
+    text-align: center; font-family: 'Noto Serif SC', serif;
+    font-size: 28px; color: var(--deep-red); font-weight: 700; margin-bottom: 10px;
+  }
+  .budget-display span { font-size: 14px; font-weight: 400; color: var(--soft); font-family: 'Noto Sans SC', sans-serif; }
+
+  input[type="range"] {
+    width: 100%; -webkit-appearance: none; height: 4px;
+    background: linear-gradient(to right, var(--red) 0%, var(--gold) 100%);
+    border-radius: 2px; outline: none; margin-bottom: 20px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--red); cursor: pointer;
+    box-shadow: 0 2px 8px rgba(192,57,43,0.3);
+  }
+
+  .generate-btn {
+    width: calc(100% - 40px); margin: 24px 20px 0; padding: 18px;
+    background: linear-gradient(135deg, var(--deep-red), var(--red));
+    color: #fff; border: none; border-radius: 14px;
+    font-family: 'Noto Serif SC', serif; font-size: 18px; letter-spacing: 3px;
+    cursor: pointer; position: relative; overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 6px 24px rgba(192,57,43,0.35);
+  }
+  .generate-btn::before {
+    content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transition: left 0.4s;
+  }
+  .generate-btn:hover::before { left: 100%; }
+  .generate-btn:active { transform: scale(0.98); }
+  .generate-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+  /* Loading */
+  .loading-wrap { display: none; text-align: center; padding: 40px 20px; }
+  .loading-wrap.show { display: block; }
+  .loading-spinner {
+    width: 48px; height: 48px; border: 3px solid rgba(192,57,43,0.15);
+    border-top-color: var(--red); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-family: 'Noto Serif SC', serif; color: var(--red); font-size: 15px; letter-spacing: 2px; }
+  .loading-sub { color: var(--soft); font-size: 12px; margin-top: 6px; }
+
+  /* Result */
+  .result-wrap { display: none; margin: 24px 20px 0; animation: fadeUp 0.5s ease; }
+  .result-wrap.show { display: block; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Download Card */
+  #downloadCard {
+    background: linear-gradient(160deg, #6B0000 0%, #9A0000 35%, #C0392B 100%);
+    border-radius: 20px; padding: 26px 20px 22px;
+    position: relative; overflow: hidden;
+  }
+  #downloadCard::before {
+    content: '馬';
+    position: absolute; font-size: 200px; color: rgba(255,255,255,0.04);
+    top: -40px; right: -30px; font-family: 'Noto Serif SC', serif; line-height: 1;
+    pointer-events: none;
+  }
+  #downloadCard::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+    height: 3px; background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  .card-header { text-align: center; margin-bottom: 16px; }
+  .card-title {
+    font-family: 'Noto Serif SC', serif; font-size: 21px; font-weight: 700;
+    color: #fff; letter-spacing: 4px; margin-bottom: 4px;
+  }
+  .card-subtitle { color: rgba(255,255,255,0.55); font-size: 11px; letter-spacing: 2px; }
+  .card-gold-line { width: 48px; height: 1px; background: var(--gold); margin: 10px auto 0; opacity: 0.7; }
+
+  .card-info-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .info-pill {
+    flex: 1; background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(212,160,23,0.2); border-radius: 8px; padding: 8px 4px; text-align: center;
+  }
+  .info-pill .ilabel { font-size: 10px; color: rgba(255,255,255,0.45); margin-bottom: 3px; }
+  .info-pill .ivalue { font-family: 'Noto Serif SC', serif; font-size: 12px; color: #fff; font-weight: 600; }
+
+  /* Dish grid — new layout */
+  .dish-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 14px; }
+
+  .dish-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(212,160,23,0.2);
+    border-radius: 11px; padding: 12px 9px; text-align: center;
+    position: relative; overflow: hidden;
+  }
+
+  .dish-card::before {
+    content: attr(data-emoji);
+    position: absolute; font-size: 52px; opacity: 0.07;
+    bottom: -6px; right: -4px; line-height: 1;
+    pointer-events: none;
+  }
+
+  .dish-emoji { font-size: 20px; margin-bottom: 5px; display: block; }
+
+  /* Big auspicious name */
+  .dish-auspicious {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 15px; font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+    line-height: 1.3;
+  }
+
+  /* Small real name */
+  .dish-real {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 2px;
+    line-height: 1.4;
+  }
+
+  .dish-en {
+    font-size: 9px;
+    color: rgba(255,255,255,0.3);
+    font-style: italic;
+    letter-spacing: 0.3px;
+  }
+
+  .serve-order {
+    background: rgba(0,0,0,0.18); border-radius: 9px;
+    padding: 10px 13px; margin-bottom: 10px;
+  }
+  .serve-order-title { font-family: 'Noto Serif SC', serif; font-size: 11px; color: var(--gold); margin-bottom: 5px; letter-spacing: 1px; }
+  .serve-order-text { font-size: 11px; color: rgba(255,255,255,0.65); line-height: 1.7; }
+
+  .tip-section {
+    background: rgba(212,160,23,0.1); border-left: 2px solid var(--gold);
+    border-radius: 0 8px 8px 0; padding: 9px 12px; margin-bottom: 14px;
+  }
+  .tip-title { font-size: 10px; color: var(--gold); margin-bottom: 3px; font-weight: 500; letter-spacing: 1px; }
+  .tip-text { font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.7; }
+
+  .card-footer {
+    text-align: center; font-size: 10px; color: rgba(255,255,255,0.25);
+    letter-spacing: 1px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  /* Action buttons */
+  .action-btns { display: flex; gap: 10px; margin-top: 14px; }
+  .download-btn {
+    flex: 1; padding: 13px;
+    background: linear-gradient(135deg, var(--gold), #A07010);
+    color: #fff; border: none; border-radius: 12px;
+    font-family: 'Noto Serif SC', serif; font-size: 14px; letter-spacing: 2px;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(212,160,23,0.3); transition: transform 0.15s;
+  }
+  .download-btn:active { transform: scale(0.97); }
+
+  /* Retry section */
+  .retry-section {
+    margin-top: 14px;
+    background: #fff;
+    border: 1.5px solid rgba(192,57,43,0.15);
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  .retry-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 13px; color: var(--deep-red);
+    margin-bottom: 10px; letter-spacing: 1px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .retry-input {
+    width: 100%; background: var(--cream);
+    border: 1.5px solid rgba(212,160,23,0.25);
+    border-radius: 10px; padding: 11px 14px;
+    font-size: 13px; font-family: 'Noto Sans SC', sans-serif;
+    color: var(--dark); outline: none;
+    transition: border-color 0.2s; margin-bottom: 10px; resize: none;
+  }
+  .retry-input:focus { border-color: var(--gold); }
+  .retry-input::placeholder { color: #C4A882; font-size: 12px; }
+
+  .retry-btn {
+    width: 100%; padding: 12px;
+    background: linear-gradient(135deg, var(--deep-red), var(--red));
+    color: #fff; border: none; border-radius: 10px;
+    font-family: 'Noto Serif SC', serif; font-size: 15px; letter-spacing: 2px;
+    cursor: pointer; transition: transform 0.15s;
+    box-shadow: 0 4px 14px rgba(192,57,43,0.25);
+  }
+  .retry-btn:active { transform: scale(0.98); }
+  .retry-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .retry-counter {
+    text-align: center; font-size: 11px; color: #C4A882;
+    margin-top: 8px; letter-spacing: 0.5px;
+  }
+
+  /* Error */
+  .error-msg {
+    background: rgba(192,57,43,0.08); border: 1px solid rgba(192,57,43,0.2);
+    border-radius: 10px; padding: 12px 16px; color: var(--red);
+    font-size: 13px; margin: 16px 20px 0; display: none; text-align: center;
+  }
+  .error-msg.show { display: block; }
+
+  .footer { text-align: center; padding: 32px 20px 0; color: #C4A882; font-size: 11px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <div class="header">
+    <div class="lantern">🏮</div>
+    <h1>年夜饭菜单生成器</h1>
+    <p>马年吉祥 · 告诉我你家的情况，AI 帮你搞定</p>
+    <div class="gold-divider"></div>
+  </div>
+
+  <div class="form-section" id="formSection">
+
+    <div class="section-label">🧧 家庭成员</div>
+    <div class="people-grid">
+      <div class="people-card">
+        <span class="emoji">👴👵</span>
+        <label>老人（60岁以上）</label>
+        <input type="number" id="elderly" min="0" max="20" value="0">
+      </div>
+      <div class="people-card">
+        <span class="emoji">🧑🧔</span>
+        <label>中年人（30-60岁）</label>
+        <input type="number" id="adults" min="0" max="20" value="2">
+      </div>
+      <div class="people-card">
+        <span class="emoji">🧒👦</span>
+        <label>年轻人（15-30岁）</label>
+        <input type="number" id="youth" min="0" max="20" value="0">
+      </div>
+      <div class="people-card">
+        <span class="emoji">👶🧒</span>
+        <label>小孩（15岁以下）</label>
+        <input type="number" id="kids" min="0" max="20" value="1">
+      </div>
+    </div>
+
+    <div class="section-label">🌶️ 整体口味偏好</div>
+    <div class="tag-group" id="tasteGroup">
+      <div class="tag" data-val="清淡">清淡为主</div>
+      <div class="tag selected" data-val="均衡">荤素均衡</div>
+      <div class="tag" data-val="重口">重口下饭</div>
+      <div class="tag" data-val="鲜甜">鲜甜为主</div>
+      <div class="tag" data-val="家常">家常风味</div>
+      <div class="tag" data-val="硬菜">想要大硬菜</div>
+    </div>
+
+    <div class="section-label">🚫 忌口 / 过敏</div>
+    <div class="avoid-group" id="avoidGroup">
+      <div class="avoid-item" data-val="没有忌口"><div class="avoid-label">没有忌口</div></div>
+      <div class="avoid-item" data-val="海鲜过敏">
+        <div class="avoid-label">海鲜过敏</div>
+        <div class="avoid-count-wrap"><input type="number" class="avoid-count" min="1" max="20" value="1"><span>人</span></div>
+      </div>
+      <div class="avoid-item" data-val="不吃猪肉">
+        <div class="avoid-label">不吃猪肉</div>
+        <div class="avoid-count-wrap"><input type="number" class="avoid-count" min="1" max="20" value="1"><span>人</span></div>
+      </div>
+      <div class="avoid-item" data-val="不吃牛羊">
+        <div class="avoid-label">不吃牛羊</div>
+        <div class="avoid-count-wrap"><input type="number" class="avoid-count" min="1" max="20" value="1"><span>人</span></div>
+      </div>
+      <div class="avoid-item" data-val="不吃香菜">
+        <div class="avoid-label">不吃香菜</div>
+        <div class="avoid-count-wrap"><input type="number" class="avoid-count" min="1" max="20" value="1"><span>人</span></div>
+      </div>
+      <div class="avoid-item" data-val="完全不吃辣">
+        <div class="avoid-label">完全不吃辣</div>
+        <div class="avoid-count-wrap"><input type="number" class="avoid-count" min="1" max="20" value="1"><span>人</span></div>
+      </div>
+      <div class="avoid-item" data-val="忌生冷">
+        <div class="avoid-label">忌生冷</div>
+        <div class="avoid-count-wrap"><input type="number" class="avoid-count" min="1" max="20" value="1"><span>人</span></div>
+      </div>
+    </div>
+
+    <div class="section-label">💰 食材预算</div>
+    <div class="budget-display">¥<span id="budgetVal">800</span> <span>元左右</span></div>
+    <input type="range" id="budgetRange" min="200" max="3000" step="100" value="800">
+
+    <div class="section-label">🍳 厨房条件（可多选）</div>
+    <div class="tag-group" id="kitchenGroup">
+      <div class="tag selected" data-val="普通家庭厨房">普通厨房</div>
+      <div class="tag" data-val="烤箱">有烤箱</div>
+      <div class="tag" data-val="蒸箱">有蒸箱</div>
+      <div class="tag" data-val="空气炸锅">空气炸锅</div>
+      <div class="tag" data-val="只会简单烹饪">只会简单烹饪</div>
+    </div>
+
+    <div class="section-label">🧊 冰箱里已有什么？（可选）</div>
+    <textarea class="input-field" id="existing" rows="3"
+      placeholder="比如：排骨、虾、五花肉、白菜、豆腐……AI 帮你都用上，减少浪费"></textarea>
+
+    <div class="section-label">✏️ 还有什么特殊要求？（可选）</div>
+    <textarea class="input-field" id="special" rows="2"
+      placeholder="比如：婆婆喜欢红烧、娃只吃鸡肉、想要一道拿手硬菜……"></textarea>
+
+  </div>
+
+  <button class="generate-btn" id="generateBtn">
+    🧧 生成我家年夜饭菜单
+  </button>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="loading-wrap" id="loadingWrap">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">AI 正在为您定制菜单</div>
+    <div class="loading-sub" id="loadingSubText">根据每位家人精心搭配中……</div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-wrap" id="resultWrap">
+
+    <!-- Downloadable card -->
+    <div id="downloadCard">
+      <div class="card-header">
+        <div class="card-title">🎊 马年年夜饭菜单</div>
+        <div class="card-subtitle" id="cardSubtitle">专属定制 · 今年就这么吃</div>
+        <div class="card-gold-line"></div>
+      </div>
+      <div class="card-info-row" id="cardInfoRow"></div>
+      <div class="dish-grid" id="dishGrid"></div>
+      <div class="serve-order" id="serveOrderBlock"></div>
+      <div class="tip-section" id="tipBlock"></div>
+      <div class="card-footer">🏮 马到成功 · 合家欢乐 · 2026 🏮</div>
+    </div>
+
+    <!-- Save image -->
+    <div class="action-btns">
+      <button class="download-btn" id="downloadBtn">📥 保存精美图片</button>
+    </div>
+
+    <!-- Retry section -->
+    <div class="retry-section">
+      <div class="retry-title">✏️ 对菜单不满意？告诉我哪里要改</div>
+      <textarea class="retry-input" id="retryInput" rows="3"
+        placeholder="比如：想换一道硬菜、鱼的菜太多了、老人那道菜能不能换成汤、名字不够好听……"></textarea>
+      <button class="retry-btn" id="retryBtn">🔄 重新生成</button>
+      <div class="retry-counter" id="retryCounter"></div>
+    </div>
+
+  </div>
+
+  <div class="footer">Powered by AI · 愿每一桌年夜饭都热热闹闹 🏮</div>
+</div>
+
+<script>
+  // State
+  let retryCount = 0;
+  let lastParams = null;
+  let lastFeedbacks = [];
+
+  // Budget — 同时监听 input / change / touchmove 兼容所有移动端
+  const budgetRange = document.getElementById('budgetRange');
+  const budgetVal = document.getElementById('budgetVal');
+  function updateBudget() { budgetVal.textContent = budgetRange.value; }
+  budgetRange.addEventListener('input', updateBudget);
+  budgetRange.addEventListener('change', updateBudget);
+  budgetRange.addEventListener('touchmove', updateBudget, { passive: true });
+  budgetRange.addEventListener('touchend', updateBudget, { passive: true });
+
+  // 兼容移动端的点击绑定（同时处理 touchend + click，防止双触发）
+  function onTap(el, fn) {
+    let touched = false;
+    el.addEventListener('touchend', (e) => {
+      touched = true;
+      e.preventDefault();
+      fn(e);
+      setTimeout(() => { touched = false; }, 300);
+    }, { passive: false });
+    el.addEventListener('click', (e) => {
+      if (!touched) fn(e);
+    });
+  }
+
+  function initSingleSelect(id) {
+    document.getElementById(id).querySelectorAll('.tag').forEach(tag => {
+      onTap(tag, () => {
+        document.getElementById(id).querySelectorAll('.tag').forEach(t => t.classList.remove('selected'));
+        tag.classList.add('selected');
+      });
+    });
+  }
+
+  function initMultiSelect(id) {
+    document.getElementById(id).querySelectorAll('.tag').forEach(tag => {
+      onTap(tag, () => tag.classList.toggle('selected'));
+    });
+  }
+
+  initSingleSelect('tasteGroup');
+  initMultiSelect('kitchenGroup');
+
+  document.getElementById('avoidGroup').querySelectorAll('.avoid-item').forEach(item => {
+    onTap(item.querySelector('.avoid-label'), () => {
+      const isNone = item.dataset.val === '没有忌口';
+      if (isNone) {
+        document.getElementById('avoidGroup').querySelectorAll('.avoid-item').forEach(i => i.classList.remove('active'));
+        item.classList.toggle('active');
+      } else {
+        document.getElementById('avoidGroup').querySelector('[data-val="没有忌口"]').classList.remove('active');
+        item.classList.toggle('active');
+      }
+    });
+  });
+
+  function getSelected(id) {
+    return [...document.getElementById(id).querySelectorAll('.tag.selected')].map(t => t.dataset.val);
+  }
+
+  function getAvoids() {
+    return [...document.getElementById('avoidGroup').querySelectorAll('.avoid-item.active')].map(item => {
+      const val = item.dataset.val;
+      const countEl = item.querySelector('.avoid-count');
+      return countEl ? `${val}（${parseInt(countEl.value)||1}人）` : val;
+    });
+  }
+
+  function getNum(id) { return parseInt(document.getElementById(id).value) || 0; }
+
+  const emojiMap = {
+    '鱼':'🐟','虾':'🦐','蟹':'🦀','鸡':'🍗','鸭':'🦆','鹅':'🦢',
+    '猪':'🥩','牛':'🥩','羊':'🍖','排骨':'🍖','蹄':'🍖','肘':'🍖',
+    '豆腐':'🫘','蛋':'🥚','白菜':'🥬','青菜':'🥦','蘑菇':'🍄','藕':'🪷',
+    '汤':'🍲','火锅':'🫕','饺子':'🥟','年糕':'🍡','包':'🥟',
+    '糖醋':'🍬','红烧':'🥩','清蒸':'♨️','凉拌':'🥗','炒':'🍳',
+  };
+
+  function getEmoji(name) {
+    for (const [k, v] of Object.entries(emojiMap)) {
+      if (name.includes(k)) return v;
+    }
+    return '🍽️';
+  }
+
+  function buildPrompt(params, feedbacks) {
+    const { elderly, adults, youth, kids, total, taste, avoids, kitchen, budget, existing, special, dishCount } = params;
+    const feedbackStr = feedbacks.length > 0
+      ? `\n用户对上一版菜单的改进意见：${feedbacks.join('；')}\n请根据这些意见重新生成，必须有明显改变。`
+      : '';
+
+    return `你是家庭厨师顾问。为以下家庭生成马年年夜饭菜单，只返回JSON，不要任何其他文字。
+
+家庭：老人${elderly}人、中年人${adults}人、年轻人${youth}人、小孩${kids}人，共${total}人
+口味：${taste}
+忌口：${avoids.length ? avoids.join('、') : '无'}
+预算：约${budget}元
+厨房：${kitchen.join('、') || '普通厨房'}
+${existing ? '冰箱食材：' + existing : ''}
+${special ? '特殊要求：' + special : ''}
+${feedbackStr}
+
+规则：
+- 每个年龄段都要照顾，老人和小孩的需求同等重要
+- 冰箱已有食材尽量用上
+- 菜品数量：${dishCount}道
+- auspiciousName：结合2026马年，起一个有马年寓意的吉祥菜名（4字，如"马到成功"、"骏马迎春"、"良驹献瑞"，要创意各不相同，不要重复）
+- 吉祥名要与菜的特点或寓意有关联，有创意，不能全部用"马"字开头
+
+严格按此JSON格式返回：
+{
+  "summary": "一句话风格描述（12字以内）",
+  "dishes": [
+    {
+      "auspiciousName": "马到成功（4字吉祥名）",
+      "name": "红烧东坡肉（真实菜名）",
+      "english": "Braised Pork Belly",
+      "emoji": "🥩"
+    }
+  ],
+  "serveOrder": "上菜顺序（35字以内）",
+  "tip": "采购或烹饪小贴士（25字以内）"
+}`;
+  }
+
+  async function generateMenu() {
+    const elderly = getNum('elderly');
+    const adults = getNum('adults');
+    const youth = getNum('youth');
+    const kids = getNum('kids');
+    const total = elderly + adults + youth + kids;
+
+    if (total === 0) { showError('请至少填写一位家庭成员人数 😊'); return; }
+
+    lastParams = {
+      elderly, adults, youth, kids, total,
+      taste: getSelected('tasteGroup')[0] || '均衡',
+      avoids: getAvoids(),
+      kitchen: getSelected('kitchenGroup'),
+      budget: budgetRange.value,
+      existing: document.getElementById('existing').value.trim(),
+      special: document.getElementById('special').value.trim(),
+      dishCount: Math.max(6, Math.min(10, total + 2))
+    };
+    lastFeedbacks = [];
+    retryCount = 0;
+
+    hideError();
+    showLoading('根据每位家人精心搭配中……');
+    await callAPI(lastParams, lastFeedbacks);
+  }
+
+  async function retryMenu() {
+    const feedback = document.getElementById('retryInput').value.trim();
+    if (feedback) lastFeedbacks.push(feedback);
+    document.getElementById('retryInput').value = '';
+
+    retryCount++;
+    showLoading(`第 ${retryCount} 次重新生成中……`);
+    await callAPI(lastParams, lastFeedbacks);
+  }
+
+  async function callAPI(params, feedbacks) {
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: buildPrompt(params, feedbacks) })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '请求失败');
+
+      let text = (data.text || '').replace(/```json|```/g, '').trim();
+      const menu = JSON.parse(text);
+
+      renderCard(menu, params);
+      showResult();
+
+    } catch (err) {
+      hideLoading();
+      showError('生成遇到问题，请稍后再试 🙏');
+      console.error(err);
+    }
+  }
+
+  function renderCard(menu, params) {
+    document.getElementById('cardSubtitle').textContent = menu.summary || '专属定制 · 马年就这么吃';
+
+    document.getElementById('cardInfoRow').innerHTML = `
+      <div class="info-pill"><div class="ilabel">👨‍👩‍👧 人数</div><div class="ivalue">${params.total} 人</div></div>
+      <div class="info-pill"><div class="ilabel">💰 预算</div><div class="ivalue">约 ${params.budget} 元</div></div>
+      <div class="info-pill"><div class="ilabel">🌶️ 口味</div><div class="ivalue">${params.taste}</div></div>
+    `;
+
+    document.getElementById('dishGrid').innerHTML = (menu.dishes || []).map(d => {
+      const emoji = d.emoji || getEmoji(d.name);
+      return `
+        <div class="dish-card" data-emoji="${emoji}">
+          <span class="dish-emoji">${emoji}</span>
+          <div class="dish-auspicious">${d.auspiciousName || ''}</div>
+          <div class="dish-real">${d.name || ''}</div>
+          <div class="dish-en">${d.english || ''}</div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('serveOrderBlock').innerHTML = `
+      <div class="serve-order-title">📋 上菜顺序</div>
+      <div class="serve-order-text">${menu.serveOrder || ''}</div>
+    `;
+
+    document.getElementById('tipBlock').innerHTML = `
+      <div class="tip-title">💡 小贴士</div>
+      <div class="tip-text">${menu.tip || ''}</div>
+    `;
+
+    // Update retry counter
+    if (retryCount > 0) {
+      document.getElementById('retryCounter').textContent = `已重新生成 ${retryCount} 次`;
+    } else {
+      document.getElementById('retryCounter').textContent = '';
+    }
+  }
+
+  async function downloadCard() {
+    const btn = document.getElementById('downloadBtn');
+    btn.textContent = '生成中…';
+    btn.disabled = true;
+    try {
+      const canvas = await html2canvas(document.getElementById('downloadCard'), {
+        scale: 3, useCORS: true, backgroundColor: null, logging: false
+      });
+      const link = document.createElement('a');
+      link.download = '马年年夜饭菜单.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      alert('保存失败，请截屏保存 🙏');
+    }
+    btn.textContent = '📥 保存精美图片';
+    btn.disabled = false;
+  }
+
+  function showLoading(subText) {
+    document.getElementById('formSection').style.display = 'none';
+    document.getElementById('generateBtn').style.display = 'none';
+    document.getElementById('loadingWrap').classList.add('show');
+    document.getElementById('resultWrap').classList.remove('show');
+    const subEl = document.getElementById('loadingSubText');
+    if (subText && subEl) subEl.textContent = subText;
+  }
+
+  function hideLoading() { document.getElementById('loadingWrap').classList.remove('show'); }
+
+  function showResult() {
+    hideLoading();
+    document.getElementById('resultWrap').classList.add('show');
+    // 滚动到结果卡片顶部
+    setTimeout(() => {
+      document.getElementById('downloadCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg; el.classList.add('show');
+    // 错误时恢复表单显示
+    document.getElementById('formSection').style.display = 'block';
+    document.getElementById('generateBtn').style.display = 'block';
+  }
+
+  function hideError() { document.getElementById('errorMsg').classList.remove('show'); }
+
+  // 事件绑定
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('generateBtn').addEventListener('click', generateMenu);
+    document.getElementById('downloadBtn').addEventListener('click', downloadCard);
+    document.getElementById('retryBtn').addEventListener('click', function() {
+      if (!lastParams) { showError('请重新填写表单后生成 😊'); return; }
+      retryMenu();
+    });
+  });
+</script>
+</body>
+</html>
